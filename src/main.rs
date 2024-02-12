@@ -5,16 +5,21 @@ use colored::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Get the word from command line arguments
+    // Get the words from command line arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("Please provide a word to search");
         return Ok(());
     }
-    let word = &args[1];
+    let words = if args.len() <= 4 {
+        args[1..].join("-")
+    } else {
+        eprintln!("Too many words provided. Please provide 2 to 4 words separated by hyphens");
+        return Ok(());
+    };
 
     // Construct the URL
-    let url = format!("https://dictionary.cambridge.org/dictionary/english/{}", word);
+    let url = format!("https://dictionary.cambridge.org/dictionary/english/{}", words);
 
     // Send the HTTP GET request
     let response = reqwest::get(&url).await?;
