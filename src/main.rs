@@ -1,7 +1,6 @@
 use std::env;
 use reqwest;
 use scraper::{Html, Selector};
-// use console::style;
 use colored::*;
 
 #[tokio::main]
@@ -36,27 +35,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let example_selector = Selector::parse(".eg").unwrap(); // Adjust if necessary
 
     if let Some(word) = document.select(&word_selector).next() {
-        println!(" {}", word.text().collect::<Vec<_>>().join(" ").bold().white());
+        print!(" {}    ", word.text().collect::<Vec<_>>().join(" ").bold().white());
     }
     if let Some(pos) = document.select(&pos_selector).next() {
         println!(" {}", pos.text().collect::<Vec<_>>().join(" ").italic().white());
     }
     if let Some(uk_pron) = document.select(&uk_pronunciation_selector).next() {
-        println!("UK Pron: {}", uk_pron.text().collect::<Vec<_>>().join(" ").italic().white());
+        print!("UK /{}/", uk_pron.text().collect::<Vec<_>>().join(" ").italic().cyan());
     }
     if let Some(us_pron) = document.select(&us_pronunciation_selector).next() {
-        println!("US Pron: {}", us_pron.text().collect::<Vec<_>>().join(" ").italic().white());
+        println!(" US /{}/    ", us_pron.text().collect::<Vec<_>>().join(" ").italic().cyan());
     }
 
     for def_block in document.select(&def_blocks_selector) {
         // Add a separator for readability between different definitions
         println!("{}", "-".repeat(50).magenta());
         if let Some(def) = def_block.select(&def_selector).next() {
-            println!("Def: {}", def.text().collect::<Vec<_>>().join(" ").italic().white());
+            println!("Def: {}", def.text().collect::<Vec<_>>().join(" ").italic().yellow());
         }
         // For each definition, find and print all associated example sentences
         for example in def_block.select(&example_selector) {
-            println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().white());
+            println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().green());
         }
     }
 
