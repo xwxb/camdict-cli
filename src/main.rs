@@ -1,7 +1,8 @@
 use std::env;
 use reqwest;
 use scraper::{Html, Selector};
-use console::style;
+// use console::style;
+use colored::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,27 +25,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let document = Html::parse_document(&body);
 
-    // // Define a CSS selector for the main definition.
-    // let def_selector = Selector::parse(".def-block .ddef_d").unwrap();
-    // Adjusted selectors based on actual HTML structure
-    let word_selector = Selector::parse("span .hw").unwrap();
-    let pos_selector = Selector::parse(".pos-header .pos").unwrap();
-    let uk_pronunciation_selector = Selector::parse(".uk .pron").unwrap();
-    // let us_pronunciation_selector = Selector::parse(".us .pron").unwrap();
-    let example_selector = Selector::parse(".examp").unwrap();
+    let word_selector = Selector::parse("span .dhw").unwrap();
+    let pos_selector = Selector::parse(".pos").unwrap();
+    let uk_pronunciation_selector = Selector::parse(".uk .pron .ipa").unwrap();
+    let us_pronunciation_selector = Selector::parse(".us .pron .ipa").unwrap();
+    
+    // Assuming each definition block contains both the definition and examples
+    let def_blocks_selector = Selector::parse(".def-block").unwrap();
+    let def_selector = Selector::parse(".def").unwrap(); // Adjust if necessary
+    let example_selector = Selector::parse(".eg").unwrap(); // Adjust if necessary
 
-    // output
     if let Some(word) = document.select(&word_selector).next() {
-        println!("{}", style(word.text().collect::<Vec<_>>().join("")).bold().underlined().cyan());
+        println!(" {}", word.text().collect::<Vec<_>>().join(" ").bold().white());
     }
     if let Some(pos) = document.select(&pos_selector).next() {
-        println!("{}", style(pos.text().collect::<Vec<_>>().join("")).green());
+        println!(" {}", pos.text().collect::<Vec<_>>().join(" ").italic().white());
     }
-    if let Some(pronunciation) = document.select(&uk_pronunciation_selector).next() {
-        println!("{}", style(pronunciation.text().collect::<Vec<_>>().join("")).yellow());
+    if let Some(uk_pron) = document.select(&uk_pronunciation_selector).next() {
+        println!("UK Pron: {}", uk_pron.text().collect::<Vec<_>>().join(" ").italic().white());
     }
-    if let Some(example) = document.select(&example_selector).next() {
-        println!("Example: {}", style(example.text().collect::<Vec<_>>().join("")).italic().white());
+    if let Some(us_pron) = document.select(&us_pronunciation_selector).next() {
+        println!("US Pron: {}", us_pron.text().collect::<Vec<_>>().join(" ").italic().white());
+    }
+
+    for def_block in document.select(&def_blocks_selector) {
+        // Add a separator for readability between different definitions
+        println!("{}", "-".repeat(50).magenta());
+        if let Some(def) = def_block.select(&def_selector).next() {
+            println!("Def: {}", def.text().collect::<Vec<_>>().join(" ").italic().white());
+        }
+        // For each definition, find and print all associated example sentences
+        for example in def_block.select(&example_selector) {
+            println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().white());
+        }
     }
 
     Ok(())
