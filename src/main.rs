@@ -53,9 +53,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for def_block in document.select(&def_blocks_selector) {
-        // Add a separator for readability between different definitions
-        println!("{}", "-".repeat(50).magenta());
         if let Some(def) = def_block.select(&def_selector).next() {
+            // remove bad data
+            // if def is begin with `→ `, continue
+            let text = def.text().collect::<Vec<_>>()[0].trim();
+            if text == "→" {
+                continue;
+            }
+
+            // Add a separator for readability between different definitions
+            println!("{}", "-".repeat(50).magenta());
             println!("Def: {}", def.text().collect::<Vec<_>>().join(" ").italic().yellow());
         }
         // For each definition, find and print all associated example sentences
