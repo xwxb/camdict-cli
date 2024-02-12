@@ -1,16 +1,23 @@
 name: Rust
 
 on:
-  create:
-    tags:
-      - v*
+  [push]
+  # create:
+  #   tags:
+  #     - v*
 
 jobs:
-  build:
+  build-and-release:
     runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Cache dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Install Rust
       run: |
@@ -23,33 +30,6 @@ jobs:
 
     - name: Build for Apple M1
       run: cargo build --release --target=aarch64-apple-darwin
-
-    - name: Archive build artifacts for x86_64
-      uses: actions/upload-artifact@v3
-      with: 
-        name: x86_64-artifact
-        path: target/release
-    
-    - name: Archive build artifacts for Apple M1
-      uses: actions/upload-artifact@v3
-      with: 
-        name: m1-artifact
-        path: target/aarch64-apple-darwin/release
-    
-  release:
-    needs: build
-    runs-on: macos-latest
-
-    steps:
-    - name: Download x86_64 artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: x86_64-artifact
-    
-    - name: Download Apple M1 artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: m1-artifact
 
     - name: Create Release
       id: create_release
@@ -71,7 +51,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.PAT_CDC_GA }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./x86_64-artifact/camdict_cli
+        asset_path: ./target/release/camdict_cli
         asset_name: fcd_x86_64
         asset_content_type: application/octet-stream
 
@@ -81,6 +61,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.PAT_CDC_GA }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./m1-artifact/camdict_cli
+        asset_path: ./target/aarch64-apple-darwin/release/camdict_cli
         asset_name: fcd_M1
         asset_content_type: application/octet-stream
