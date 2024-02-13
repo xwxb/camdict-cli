@@ -40,7 +40,7 @@ async fn send_request(url: &str) -> Result<String, Box<dyn std::error::Error>> {
 fn parse_and_output(body: &str, opts: &Opts) {
     let document = Html::parse_document(body);
 
-    let word_selector = Selector::parse("span .dhw").unwrap();
+    let word_selector = Selector::parse("h2, .dhw").unwrap();
     let pos_selector = Selector::parse(".pos").unwrap();
     let uk_pronunciation_selector = Selector::parse(".uk .pron .ipa").unwrap();
     let us_pronunciation_selector = Selector::parse(".us .pron .ipa").unwrap();
@@ -110,7 +110,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         return Err(("Too many words provided. Please provide 2 to 4 words separated by hyphens").into());
     };
-
     let url = construct_url(&word);
     let body = send_request(&url).await?;
 
