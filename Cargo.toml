@@ -12,3 +12,4 @@ scraper = "0.18.1"
 # console = "0.15.8"
 colored = "2.1.0"
 clap = { version = "4.5.0", features = ["derive"] }
+regex = "1.10.3"

@@ -2,6 +2,7 @@ use reqwest;
 use scraper::{Html, Selector};
 use colored::*;
 use clap::Parser;
+use regex::Regex;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -63,6 +64,10 @@ fn parse_and_output(body: &str, opts: &Opts) {
     }
 
     let mut cnt: u8 = 0;
+    // todo 正则的处理不是很优雅
+    let re_space = Regex::new(r" +").unwrap();
+    let re_punctuation = Regex::new(r"\s(\p{P})").unwrap();
+
     for def_block in document.select(&def_blocks_selector) {
         if let Some(def) = def_block.select(&def_selector).next() {
             // remove bad data
@@ -74,12 +79,19 @@ fn parse_and_output(body: &str, opts: &Opts) {
 
             // Add a separator for readability between different definitions
             println!("{}", "-".repeat(50).magenta());
-            println!("Def: {}", def.text().collect::<Vec<_>>().join(" ").italic().yellow());
+            let def_text = def.text().map(|s| s.trim()).collect::<Vec<_>>().join(" ");
+            let def_text = re_punctuation.replace_all(&def_text, "$1");
+            let def_text = re_space.replace_all(&def_text, " ");
+            println!("Def: {}", def_text.italic().yellow());
         }
         // For each definition, find and print all associated example sentences
         for example in def_block.select(&example_selector) {
-            println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().green());
+            let example_text = example.text().map(|s| s.trim()).collect::<Vec<_>>().join(" ");
+            let example_text = re_punctuation.replace_all(&example_text, "$1");
+            let example_text = re_space.replace_all(&example_text, " ");
+            println!("-  {}", example_text.italic().green());
         }
+    
 
         cnt += 1;
         if !opts.all && cnt >= opts.number {
