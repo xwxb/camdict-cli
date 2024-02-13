@@ -1,33 +1,43 @@
-use std::env;
 use reqwest;
 use scraper::{Html, Selector};
 use colored::*;
+use clap::Parser;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Get the words from command line arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Please provide a word to search");
-        return Ok(());
-    }
-    let words = if args.len() <= 4 {
-        args[1..].join("-")
-    } else {
-        eprintln!("Too many words provided. Please provide 2 to 4 words separated by hyphens");
-        return Ok(());
-    };
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Opts {
+    word: Vec<String>,
 
+    /// Number of def and examples to show
+    #[arg(short, long, default_value_t = 1)]
+    number: u8,
+
+    /// Show all definitions and examples
+    #[arg(short, long, default_value_t = false)]
+    all: bool,
+}
+
+async fn parse_args() -> Result<Opts, Box<dyn std::error::Error>> {
+    // Parse the command line arguments
+    let opts: Opts = Opts::parse();
+    Ok(opts)
+}
+
+fn construct_url(word: &str) -> String {
     // Construct the URL
-    let url = format!("https://dictionary.cambridge.org/dictionary/english/{}", words);
+    format!("https://dictionary.cambridge.org/dictionary/english/{}", word)
+}
 
+async fn send_request(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     // Send the HTTP GET request
-    let response = reqwest::get(&url).await?;
-
+    let response = reqwest::get(url).await?;
     // Read the response body as text
     let body = response.text().await?;
+    Ok(body)
+}
 
-    let document = Html::parse_document(&body);
+fn parse_html(body: &str) {
+    let document = Html::parse_document(body);
 
     let word_selector = Selector::parse("span .dhw").unwrap();
     let pos_selector = Selector::parse(".pos").unwrap();
@@ -70,6 +80,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().green());
         }
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse the command line arguments
+    let opts = parse_args().await?;
+
+    let word_vec = opts.word;
+    let word = if word_vec.len() <= 4 {
+        word_vec[0..].join("-")
+    } else {
+        return Err(("Too many words provided. Please provide 2 to 4 words separated by hyphens").into());
+    };
+    
+    let url = construct_url(&word);
+    let body = send_request(&url).await?;
+
+    parse_html(&body);
 
     Ok(())
 }
