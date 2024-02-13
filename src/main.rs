@@ -9,7 +9,7 @@ struct Opts {
     word: Vec<String>,
 
     /// Number of def and examples to show
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(short, long, default_value_t = 3)]
     number: u8,
 
     /// Show all definitions and examples
@@ -36,7 +36,7 @@ async fn send_request(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     Ok(body)
 }
 
-fn parse_html(body: &str) {
+fn parse_and_output(body: &str, opts: &Opts) {
     let document = Html::parse_document(body);
 
     let word_selector = Selector::parse("span .dhw").unwrap();
@@ -62,6 +62,7 @@ fn parse_html(body: &str) {
         println!(" US /{}/    ", us_pron.text().collect::<Vec<_>>().join(" ").italic().cyan());
     }
 
+    let mut cnt: u8 = 0;
     for def_block in document.select(&def_blocks_selector) {
         if let Some(def) = def_block.select(&def_selector).next() {
             // remove bad data
@@ -79,6 +80,11 @@ fn parse_html(body: &str) {
         for example in def_block.select(&example_selector) {
             println!("-  {}", example.text().collect::<Vec<_>>().join(" ").italic().green());
         }
+
+        cnt += 1;
+        if !opts.all && cnt >= opts.number {
+            break;
+        }
     }
 }
 
@@ -87,17 +93,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the command line arguments
     let opts = parse_args().await?;
 
-    let word_vec = opts.word;
-    let word = if word_vec.len() <= 4 {
-        word_vec[0..].join("-")
+    let word = if opts.word.len() <= 4 {
+        opts.word[0..].join("-")
     } else {
         return Err(("Too many words provided. Please provide 2 to 4 words separated by hyphens").into());
     };
-    
+
     let url = construct_url(&word);
     let body = send_request(&url).await?;
 
-    parse_html(&body);
+    parse_and_output(&body, &opts);
 
     Ok(())
 }
