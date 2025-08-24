@@ -42,6 +42,23 @@ else
     echo "Downloaded successfully from proxy URL"
 fi
 
+# Verify the downloaded file is not empty and appears to be a binary
+if [ ! -f "fcd" ]; then
+    echo "Error: Download file not found"
+    exit 1
+fi
+
+# Check if file is not empty and has reasonable size (should be at least 1MB for a Rust binary)
+file_size=$(stat -c%s fcd 2>/dev/null || stat -f%z fcd 2>/dev/null || echo "0")
+if [ "$file_size" -lt 1000000 ]; then
+    echo "Error: Downloaded file appears to be invalid (size: ${file_size} bytes)"
+    echo "This might indicate the release assets are not available yet."
+    rm -f fcd
+    exit 1
+fi
+
+echo "Downloaded binary file (${file_size} bytes)"
+
 # Make the file executable
 chmod +x fcd
 
