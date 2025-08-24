@@ -16,30 +16,48 @@ fi
 # Get the latest release tag from GitHub
 LATEST_RELEASE_TAG=$(curl --silent "https://api.github.com/repos/xwxb/camdict-cli/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-# url0="https://github.com/xwxb/camdict-cli/releases/download/${LATEST_RELEASE_TAG}/${FILE_NAME}"
-# url1="https://kkgithub.com/xwxb/camdict-cli/releases/download/${LATEST_RELEASE_TAG}/${FILE_NAME}"
-url0="https://ghproxy.net/https://github.com/xwxb/camdict-cli/releases/download/${LATEST_RELEASE_TAG}/${FILE_NAME}"
+# Check if we got a valid release tag
+if [ -z "$LATEST_RELEASE_TAG" ]; then
+    echo "Error: Could not fetch the latest release tag from GitHub"
+    exit 1
+fi
 
-# # Test response time for each URL
-# time0=$(curl -L -o /dev/null -s -w '%{time_starttransfer}\n' "$url0")
-# time1=$(curl -L -o /dev/null -s -w '%{time_starttransfer}\n' "$url1")
-# time2=$(curl -L -o /dev/null -s -w '%{time_starttransfer}\n' "$url2")
+echo "Found latest release: $LATEST_RELEASE_TAG"
 
-# # Choose the URL with the fastest response time
-# FASTEST_URL="$url0"
-# FASTEST_TIME="$time0"
-# if (( $(echo "$time1 < $FASTEST_TIME" | bc -l) )); then
-#     FASTEST_URL="$url1"
-#     FASTEST_TIME="$time1"
-# fi
-# if (( $(echo "$time2 < $FASTEST_TIME" | bc -l) )); then
-#     FASTEST_URL="$url2"
-#     FASTEST_TIME="$time2"
-# fi
+# Define URLs with official GitHub as fallback
+PROXY_URL="https://ghproxy.net/https://github.com/xwxb/camdict-cli/releases/download/${LATEST_RELEASE_TAG}/${FILE_NAME}"
+OFFICIAL_URL="https://github.com/xwxb/camdict-cli/releases/download/${LATEST_RELEASE_TAG}/${FILE_NAME}"
 
-# # Download the file using the fastest URL
-# curl -L -o fcd "$FASTEST_URL"
-curl -L -o fcd "$url0"
+# Try downloading from proxy first (with 10 second timeout)
+echo "Downloading from proxy URL..."
+if ! curl --connect-timeout 10 --max-time 30 -L -o fcd "$PROXY_URL"; then
+    echo "Proxy download failed, trying official GitHub URL..."
+    # If proxy fails, try the official GitHub URL
+    if ! curl --connect-timeout 10 --max-time 60 -L -o fcd "$OFFICIAL_URL"; then
+        echo "Error: Failed to download from both proxy and official GitHub URLs"
+        exit 1
+    fi
+    echo "Downloaded successfully from official GitHub URL"
+else
+    echo "Downloaded successfully from proxy URL"
+fi
+
+# Verify the downloaded file is not empty and appears to be a binary
+if [ ! -f "fcd" ]; then
+    echo "Error: Download file not found"
+    exit 1
+fi
+
+# Check if file is not empty and has reasonable size (should be at least 1MB for a Rust binary)
+file_size=$(stat -c%s fcd 2>/dev/null || stat -f%z fcd 2>/dev/null || echo "0")
+if [ "$file_size" -lt 1000000 ]; then
+    echo "Error: Downloaded file appears to be invalid (size: ${file_size} bytes)"
+    echo "This might indicate the release assets are not available yet."
+    rm -f fcd
+    exit 1
+fi
+
+echo "Downloaded binary file (${file_size} bytes)"
 
 # Make the file executable
 chmod +x fcd
