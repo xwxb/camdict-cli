@@ -7,7 +7,19 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: fcd_x86_64
+            asset_path: ./target/release/camdict_cli
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: fcd_M1
+            asset_path: ./target/aarch64-apple-darwin/release/camdict_cli
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -16,20 +28,38 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ matrix.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Install Rust
       run: |
         rustup update stable
         rustup default stable
-        rustup target add aarch64-apple-darwin
 
-    - name: Build for x86_64
-      run: cargo build --release
+    - name: Add target (macOS only)
+      if: matrix.os == 'macos-latest'
+      run: rustup target add ${{ matrix.target }}
 
-    - name: Build for Apple M1
-      run: cargo build --release --target=aarch64-apple-darwin
+    - name: Build
+      run: |
+        if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          cargo build --release
+        else
+          cargo build --release --target=${{ matrix.target }}
+        fi
 
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: ${{ matrix.asset_path }}
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+    steps:
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -40,26 +70,29 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
-    
-    - name: List files
-      run: ls -R
-    
-    - name: Upload x86_64 to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT_CDC_GA }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/release/camdict_cli
-        asset_name: fcd_x86_64
-        asset_content_type: application/octet-stream
 
-    - name: Upload Apple M1 to Release
+  upload-assets:
+    needs: [build-and-release, create-release]
+    strategy:
+      matrix:
+        include:
+          - artifact_name: fcd_x86_64
+          - artifact_name: fcd_M1
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: ./
+
+    - name: Upload to Release
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.PAT_CDC_GA }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/aarch64-apple-darwin/release/camdict_cli
-        asset_name: fcd_M1
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./camdict_cli
+        asset_name: ${{ matrix.artifact_name }}
         asset_content_type: application/octet-stream
